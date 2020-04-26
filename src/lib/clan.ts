@@ -4,7 +4,7 @@ import { countByteCharacter, elemFilter, fetcheerio, getClassName } from '../uti
 
 const clansRoute = 'https://ava.pmang.jp/clans';
 
-export async function getClanMembersName(clanId: number): Promise<PlayerBasicInfo[]> {
+export async function getClanMembers(clanId: number): Promise<PlayerBasicInfo[]> {
   return new Promise(async (resolve, reject) => {
     clanId = Math.floor(clanId)
     if (clanId < 0) {

@@ -1,9 +1,7 @@
-import { getClanMembersName, searchClan } from './lib/clan'
+import { getClanMembers, searchClan } from './lib/clan'
 
 const AvaArenaDbAccessor = {
-  // TODO: Get clan member
-  // TODO: Suggest clan name
-  getClanMembersName,
+  getClanMembers,
   searchClan,
 
   // TODO: Get player basic status (eg. name, class, s/d, RP, clan)
@@ -15,6 +13,6 @@ const AvaArenaDbAccessor = {
 
 };
 
-getClanMembersName(59043).then(console.log).catch(console.error);
+getClanMembers(59043).then(console.log).catch(console.error);
 
 export default AvaArenaDbAccessor;
