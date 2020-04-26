@@ -1,19 +1,43 @@
-import fetch from 'node-fetch';
-import * as cheerio from 'cheerio';
-import { countByteCharacter, elemFilter, fetcheerio, getClassName } from '../util';
+import { countByteCharacter, getClassName, getDocumentFromURL } from '../util';
 
-const clansRoute = 'https://ava.pmang.jp/clans';
+class InvalidSearchTextError extends Error {}
+export default class Clan {
+  private static clansRoute = 'https://ava.pmang.jp/clans';
 
-export async function getClanMembers(clanId: number): Promise<PlayerBasicInfo[]> {
-  return new Promise(async (resolve, reject) => {
-    clanId = Math.floor(clanId)
-    if (clanId < 0) {
-      reject(new Error('Invalid clan ID.'));
-      return;
-    }
-    const players: PlayerBasicInfo[] = [];
+  static async getClanMembers(clanId: number): Promise<PlayerBasicInfo[]> {
+    return new Promise(async (resolve, reject) => {
+      clanId = Math.floor(clanId)
+      if (clanId < 0) {
+        reject(new Error('Invalid clan ID.'));
+        return;
+      }
+      const document = await getDocumentFromURL(`${Clan.clansRoute}/${clanId}`).catch(reject) as Document;
+      const clan = Clan.getClanBasicInfo(document, clanId);
+      // <tr>
+      //   <td>{role}</td>
+      //   <td class="name">{name}</td>
+      //   <td><img height="20" width="20" src="{classImageUrl}"></td>
+      //   <td>{sd}</td>
+      // </tr>
+      const $names = Array.from(document.querySelectorAll('#main_win .mine-box .inner .name'));
+      resolve($names.map($name => {
+        const $tr = $name.parentElement as HTMLElement;
+        const [ $roleTd, $nameTd, $classTd, $sdTd ] = Array.from($tr.getElementsByTagName('td'));
+        const $classImg = $classTd?.getElementsByTagName('img')[0];
+        const classImageUrl = $classImg?.src || '';
 
-    const $ = await fetcheerio(`${clansRoute}/${clanId}`).catch(reject) as CheerioStatic;
+        return {
+          role: $roleTd?.textContent || 'メンバー',
+          name: $nameTd?.textContent || '',
+          classImageUrl, class: getClassName(classImageUrl),
+          sd: Number($sdTd?.textContent) || 0,
+          clan
+        };
+      }));
+    });
+  }
+
+  private static getClanBasicInfo(document: Document, clanId: number): ClanBasicInfo {
     // <table class="team">
     //     <tbody>
     //       <tr>
@@ -26,123 +50,94 @@ export async function getClanMembers(clanId: number): Promise<PlayerBasicInfo[]>
     //       </tr>
     //       <tr>
     //         <th>クランホームページ</th>
-    //         <td>{homepage}</td>
+    //         <td><a href="{homepage}">{homepage}</a></td>
     //       </tr>
     //   </tbody>
     // </table>
-    const $clanInfo = $('#main_win .mine-box .team tr');
-    const $nameTdFirstChild = $clanInfo[0].children.filter(elemFilter)[1].children[0];
-    const $prTdFirstChild = $clanInfo[1].children.filter(elemFilter)[1].children[0];
-    const $hpTdFirstElemChild = $clanInfo[2].children.filter(elemFilter)[1].children.filter(elemFilter)[0];
-    const clan: ClanBasicInfo = {
-      name: $nameTdFirstChild.data || '',
+    const $clanInfoTr = document.querySelectorAll('#main_win .mine-box .team tr td');
+    const $nameTd = $clanInfoTr.item(0) as HTMLElement;
+    const $prTd = $clanInfoTr.item(1) as HTMLElement;
+    const $hpAnchor = $clanInfoTr.item(2)?.getElementsByTagName('a')?.item(0);
+    console.log($nameTd.textContent, $prTd.textContent)
+    return {
+      name: $nameTd?.textContent || '',
       id: clanId,
-      prMessage: ($prTdFirstChild && $prTdFirstChild.data) || undefined,
-      homepage: ($hpTdFirstElemChild && $hpTdFirstElemChild.attribs.href) || undefined
-    }
+      prMessage: $prTd?.textContent || undefined,
+      homepage: $hpAnchor?.href || undefined
+    };
+  }
+
+  static searchClan(searchText: string): Promise<ClanBasicInfo[]>;
+  static searchClan(searchText: string, options: { exactMatchOnly: false }): Promise<ClanBasicInfo[]>;
+  static searchClan(searchText: string, options: { exactMatchOnly: true }): Promise<ClanBasicInfo>;
+  static searchClan(searchText: string, options = { exactMatchOnly: false }): Promise<ClanBasicInfo[] | ClanBasicInfo> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        searchText = searchText.trim();
+        if (searchText.length < 3 || 20 < countByteCharacter(searchText)) {
+          reject(new InvalidSearchTextError('Enter the clan name with 3 or more characters, 20 half-width characters, and 10 full-width characters or less.'));
+          return;
+        }
+        let infos: ClanBasicInfo[] = [];
+
+        // 検索URL
+        const url = new URL(Clan.clansRoute);
+        url.searchParams.append('clan_name', searchText);
+        url.searchParams.append('sort', '0'); // ポイント順（ランク順）
+        let nextPage: string | undefined = url.href;
+
+        // 次のページがあれば
+        while (nextPage != undefined) {
+          const document = await getDocumentFromURL(nextPage).catch(reject) as Document;
+          infos = infos.concat(Clan.getClansInfoInPage(document));
+          if (options.exactMatchOnly && infos.filter(clan => clan.name === searchText).length === 1) break;
+          nextPage = Clan.existNextPage(document);
+        }
+
+        // searchTextと一致するクランを先頭へ
+        infos.sort(clan => clan.name === searchText? -1: 0);
+        resolve(options.exactMatchOnly? infos[0]: infos);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  private static existNextPage(document: Document): string | undefined {
+    // <ul class="pagelist">
+    //   <li><strong>1</strong></li>
+    //   <li><a href="/clans?clan_name={searchText}&page=2&sort=0&utf8=%E2%9C%93">2</a></li>
+    //   <li><a href="/clans?clan_name={searchText}&page=2&sort=0&utf8=%E2%9C%93">次 »</a></li>
+    // </ul>
+    const $pageList = Array.from(document.querySelectorAll('#main_win ul.pagelist li'));
+    if ($pageList.length === 0) return undefined;
+    
+    return $pageList.pop()?.getElementsByTagName('a')?.item(0)?.href || undefined;
+  }
+
+  private static getClansInfoInPage(document: Document): ClanBasicInfo[] {
     // <tr>
-    //   <td>{role}</td>
-    //   <td class="name">{name}</td>
-    //   <td><img height="20" width="20" src="{classImageUrl}"></td>
-    //   <td>{sd}</td>
+    //   <td class="team">
+    //     <span><img height="20" width="20" src="https://file.gameon.jp/ava/images/secure/member/common/images/clan/small/clan_s_000.gif"></span>
+    //     <a href="https://ava.pmang.jp/clans/{clanId}">{clanName}</a>
+    //   </td>
+    //   <td>{point}</td>
+    //   <td>{createdDate}</td>
+    //   <td>{memberCount}</td>
     // </tr>
-    $('#main_win .mine-box .inner .name').each((i, $elem) => {
-      const $trChildren = $elem.parent.children.filter(elemFilter);
-      const role = $trChildren[0].children[0].data || '';
-      const name = $trChildren[1].children[0].data || '';
-      const classImageUrl = $trChildren[2].children.filter(elemFilter)[0].attribs.src || '';
-      const className = getClassName(classImageUrl);
-      const sd = Number($trChildren[3].children[0].data) || 0;
-      players.push({
-        role, name, classImageUrl, sd, clan,
-        class: className
-      });
+    const $teams = Array.from(document.querySelectorAll('#main_win .list>table>tbody .team'));
+    return $teams.map($team => {
+      const $tr = $team.parentElement as HTMLElement;
+      const [ $teamTd, $pointTd, $dateTd, $countTd ] = Array.from($tr.getElementsByTagName('td'));
+      const $anchor = $teamTd.getElementsByTagName('a')?.item(0);
+  
+      return {
+        name: $anchor?.textContent,
+        id: Number($anchor?.href?.split('/').pop()) || -1,
+        point: Number($pointTd?.textContent) || 0,
+        createdDate: new Date($dateTd?.textContent || 0),
+        memberCount: Number($countTd?.textContent) || 0
+      } as ClanBasicInfo;
     });
-    resolve(players);
-  });
-}
-
-export function searchClan(searchText: string): Promise<ClanBasicInfo[]> {
-  return new Promise(async (resolve, reject) => {
-    try {
-      if (searchText.length < 3 || 20 < countByteCharacter(searchText)) {
-        reject(new Error('Enter the clan name with 3 or more characters, 20 half-width characters, and 10 full-width characters or less.'));
-        return;
-      }
-      let infos: ClanBasicInfo[] = [];
-
-      // 検索URL
-      const url = new URL(clansRoute);
-      url.searchParams.append('clan_name', searchText);
-      url.searchParams.append('sort', '0'); // ポイント順（ランク順）
-
-      
-      let $ = await fetcheerio(url).catch(reject) as CheerioStatic;
-      infos = infos.concat(getClanInfoInPage($));
-      let nextPage = existNextPage($);
-
-      // 次のページがあれば
-      while (nextPage != undefined) {
-        $ = await fetcheerio(nextPage).catch(reject) as CheerioStatic;
-        infos = infos.concat(getClanInfoInPage($));
-        nextPage = existNextPage($);
-      }
-
-      // searchTextと一致するクランを先頭へ
-      infos.sort(v => v.name === searchText? -1: 0);
-      resolve(infos);
-    } catch (err) {
-      reject(err);
-    }
-  });
-}
-
-function existNextPage($: CheerioStatic): URL | undefined {
-  // <ul class="pagelist">
-  //   <li><strong>1</strong></li>
-  //   <li><a href="/clans?clan_name=det&amp;page=2&amp;sort=0&amp;utf8=%E2%9C%93">2</a></li>
-  //   <li><a href="/clans?clan_name=det&amp;page=2&amp;sort=0&amp;utf8=%E2%9C%93">次 »</a></li>
-  // </ul>
-  const $pageUl = $('#main_win ul.pagelist');
-  if ($pageUl.length < 1) return undefined;
-
-  const $pageUlChildren = $pageUl[0].children.filter(elemFilter);
-  if ($pageUlChildren.length < 1) return undefined;
-
-  const $finalLi = $pageUlChildren.slice(-1)[0];
-  if ($finalLi.children == undefined) return undefined;
-
-  const $finalLiChild = $finalLi.children.filter(elemFilter)[0];
-  if ($finalLiChild.type !== 'tag' || $finalLiChild.tagName !== 'a') return undefined;
-
-  const nextUrl = $finalLiChild.attribs && $finalLiChild.attribs.href;
-  return new URL(clansRoute + nextUrl);
-}
-
-function getClanInfoInPage($: CheerioStatic): ClanBasicInfo[] {
-  const $teams = $('#main_win .list>table>tbody .team>a');
-  const infos: ClanBasicInfo[] = []
-
-  // <tr>
-  //   <td class="team">
-  //     <span><img height="20" width="20" src="https://file.gameon.jp/ava/images/secure/member/common/images/clan/small/clan_s_000.gif"></span>
-  //     <a href="https://ava.pmang.jp/clans/{clanId}">{clanName}</a>
-  //   </td>
-  //   <td>{point}</td>
-  //   <td>{createdDate}</td>
-  //   <td>{memberCount}</td>
-  // </tr>
-  $teams.each((_, $a) => {
-    const $trChildren = $a.parent.parent.children.filter(elemFilter);
-    const point = Number($trChildren[1].children[0].data) || 0;
-    const createdDate = new Date($trChildren[2].children[0].data || '');
-    const memberCount = Number($trChildren[3].children[0].data) || 0;
-
-    infos.push({
-      name: $a.children[0].data || '',
-      id: Number($a.attribs.href.split('/').pop() || ''),
-      point, createdDate, memberCount
-    });
-  })
-  return infos;
+  }
 }

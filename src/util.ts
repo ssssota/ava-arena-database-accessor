@@ -1,23 +1,17 @@
-import fetch, { RequestInfo, RequestInit } from 'node-fetch'
-import * as cheerio from 'cheerio'
+import { JSDOM, BaseOptions } from 'jsdom';
+
+// URLからDocumentを取得
+export async function getDocumentFromURL(url: string, options?: BaseOptions): Promise<Document> {
+  return await JSDOM.
+    fromURL(url, options).
+    then(dom => dom.window.document);
+}
 
 // 半角1、全角2として文字列の長さを数える
 export function countByteCharacter(string: string): number {
   return Array.
     from(string).
     reduce((acc, cur) => acc + (cur.match(/[ -~]/)? 1: 2), 0);
-}
-
-// textノードを除去する
-export function elemFilter(elem: CheerioElement) {
-  return elem.type === 'tag';
-}
-
-// fetchしてHTMLをcheerioに渡す
-export async function fetcheerio(url: RequestInfo, init?: RequestInit): Promise<CheerioStatic> {
-  return await fetch(url, init).
-    then(res => res.text()).
-    then(html => cheerio.load(html));
 }
 
 // 画像と階級を関連付ける
