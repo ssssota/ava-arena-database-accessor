@@ -27,10 +27,10 @@ export default class Clan {
         const classImageUrl = $classImg?.src || '';
 
         return {
-          role: $roleTd?.textContent || 'メンバー',
           name: $nameTd?.textContent || '',
           classImageUrl, class: getClassName(classImageUrl),
           sd: Number($sdTd?.textContent) || 0,
+          clanRole: $roleTd?.textContent || undefined,
           clan
         };
       }));
@@ -103,6 +103,42 @@ export default class Clan {
     });
   }
 
+  static searchPlayer(searchText: string): Promise<PlayerBasicInfo[]>;
+  static searchPlayer(searchText: string, options: { exactMatchOnly: false }): Promise<PlayerBasicInfo[]>;
+  static searchPlayer(searchText: string, options: { exactMatchOnly: true }): Promise<PlayerBasicInfo>;
+  static searchPlayer(searchText: string, options = { exactMatchOnly: false }): Promise<PlayerBasicInfo[] | PlayerBasicInfo> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        searchText = searchText.trim();
+        if (searchText.length < 3) {
+          reject(new InvalidSearchTextError('Enter the clan name with 3 or more characters.'));
+          return;
+        }
+        let infos: PlayerBasicInfo[] = [];
+
+        // 検索URL
+        const url = new URL(`${Clan.clansRoute}/ranking`);
+        url.searchParams.append('keyword', searchText);
+        url.searchParams.append('type', 'user');
+        let nextPage: string | undefined = url.href;
+
+        // 次のページがあれば
+        while (nextPage != undefined) {
+          const document = await getDocumentFromURL(nextPage).catch(reject) as Document;
+          infos = infos.concat(Clan.getPlayersInfoInPage(document));
+          if (options.exactMatchOnly && infos.filter(player => player.name === searchText).length === 1) break;
+          nextPage = Clan.existNextPage(document);
+        }
+
+        // searchTextと一致するプレイヤーを先頭へ
+        infos.sort(player => player.name === searchText? -1: 0);
+        resolve(options.exactMatchOnly? infos[0]: infos);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
   private static existNextPage(document: Document): string | undefined {
     // <ul class="pagelist">
     //   <li><strong>1</strong></li>
@@ -138,6 +174,43 @@ export default class Clan {
         createdDate: new Date($dateTd?.textContent || 0),
         memberCount: Number($countTd?.textContent) || 0
       } as ClanBasicInfo;
+    });
+  }
+
+  private static getPlayersInfoInPage(document: Document): PlayerBasicInfo[] {
+    // <tr>
+    //   <td class="left">{rank}</td>
+    //   <td><img height="20" width="20" src="{classImageUrl}"></td>
+    //   <td class="name">{name}</td>
+    //   <td class="text-right">{exp}</td>
+    //   <td class="text-right">{roundRp}</td>
+    //   <td class="text-right">{escortRp}</td>
+    //   <td class="text-right">{sd}</td>
+    //   <td class="left">
+    //     <span><img height="20" width="20" src="https://file.gameon.jp/ava/images/secure/member/common/images/clan/small/clan_s_000.gif"></span>
+    //     <a href="https://ava.pmang.jp/clans/{clanId}">{clanName}</a>
+    //   </td>
+    // </tr>
+    const $names = Array.from(document.querySelectorAll('#main_win .ranking>table>tbody .name'));
+    return $names.map($name => {
+      const $tr = $name.parentElement as HTMLElement;
+      const [ $rankTd, $classTd, $nameTd, $expTd, $roundRpTd, $escortRpTd, $sdTd, $clanTd ] = Array.from($tr.getElementsByTagName('td'));
+      const $anchor = $clanTd.getElementsByTagName('a')?.item(0);
+      const classImageUrl = $classTd.getElementsByTagName('img')?.item(0)?.src || '';
+  
+      return {
+        name: $nameTd?.textContent,
+        rank: Number($rankTd?.textContent?.split('(')[0]) || -1,
+        classImageUrl, class: getClassName(classImageUrl),
+        exp: Number($expTd?.textContent) || 0,
+        roundRp: Number($roundRpTd?.textContent) || 0,
+        escortRp: Number($escortRpTd?.textContent) || 0,
+        sd: Number($sdTd?.textContent) || 0,
+        clan: (!$anchor)? undefined: {
+          name: $anchor?.textContent || '',
+          id: Number($anchor?.href?.split('/').pop()) || -1
+        }
+      } as PlayerBasicInfo;
     });
   }
 }

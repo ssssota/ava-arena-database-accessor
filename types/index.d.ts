@@ -9,10 +9,12 @@ declare interface ClanBasicInfo {
   homepage?: string;
 }
 declare interface PlayerBasicInfo {
-  role: string;
   name: string;
   class: string;
   classImageUrl: string;
   sd: number;
+  rank?: number;
+  exp?: number;
+  clanRole?: string;
   clan?: ClanBasicInfo;
 }

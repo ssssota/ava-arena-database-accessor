@@ -1,7 +1,8 @@
 import { JSDOM, BaseOptions } from 'jsdom';
 
 // URLからDocumentを取得
-export async function getDocumentFromURL(url: string, options?: BaseOptions): Promise<Document> {
+export async function getDocumentFromURL(url: string | URL, options?: BaseOptions): Promise<Document> {
+  if (url instanceof URL) url = url.href;
   return await JSDOM.
     fromURL(url, options).
     then(dom => dom.window.document);
