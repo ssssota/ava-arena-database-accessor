@@ -28,7 +28,10 @@ export default class Clan {
 
         return {
           name: $nameTd?.textContent || '',
-          classImageUrl, class: getClassName(classImageUrl),
+          class: {
+            name: getClassName(classImageUrl),
+            imageUrl: classImageUrl
+          },
           sd: Number($sdTd?.textContent) || 0,
           clanRole: $roleTd?.textContent || undefined,
           clan
@@ -201,7 +204,10 @@ export default class Clan {
       return {
         name: $nameTd?.textContent,
         rank: Number($rankTd?.textContent?.split('(')[0]) || -1,
-        classImageUrl, class: getClassName(classImageUrl),
+        class: {
+          name: getClassName(classImageUrl),
+          imageUrl: classImageUrl,
+        },
         exp: Number($expTd?.textContent) || 0,
         roundRp: Number($roundRpTd?.textContent) || 0,
         escortRp: Number($escortRpTd?.textContent) || 0,
