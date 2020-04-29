@@ -66,9 +66,9 @@ declare interface TeamMember {
   name: string;
   arenaRank: ArenaRank;
 }
-declare interface Rank {
+declare interface NameImageMap {
   name: string;
   imageUrl: string;
 }
-declare interface ArenaRank extends Rank {}
-declare interface Class extends Rank {}
+declare interface ArenaRank extends NameImageMap {}
+declare interface Class extends NameImageMap {}

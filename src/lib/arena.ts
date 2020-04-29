@@ -1,4 +1,4 @@
-import { getDocumentFromURL, getCurrentSeason, getClassName, getArenaRankName } from '../util';
+import { getDocumentFromURL, getCurrentSeason, getNameFromUrl } from '../util';
 
 export default class Arena {
   private static arenaRoute = 'https://ava.pmang.jp/arena/results';
@@ -6,7 +6,7 @@ export default class Arena {
   static getPlayerInfo(playerName: string, season?: number): Promise<PlayerArenaInfo> {
     return new Promise(async (resolve, reject) => {
       try {
-        const url = await this.getPlayerUrl(playerName, season);
+        const url = await Arena.getPlayerUrl(playerName, season);
         const document = await getDocumentFromURL(url).catch(reject) as Document;
         const [ $name, $class, $clan ] = Array.from(document.querySelectorAll('#chara .chara-data dl.chara-data__item dd.chara-data__inner')) as HTMLElement[];
         const [ $rank, $record, $kill ] = Array.from(document.querySelectorAll('#season .season-data dl.season-data__item dd.season-data__inner')) as HTMLElement[];
@@ -26,11 +26,11 @@ export default class Arena {
         resolve({
           name: $name?.textContent || playerName,
           class: {
-            name: getClassName(classImageUrl),
+            name: getNameFromUrl(classImageUrl),
             imageUrl: classImageUrl,
           },
           clanName: $clan?.getElementsByTagName('p')?.item(0)?.textContent || undefined,
-          arenaRankImageUrl, arenaRank: getArenaRankName(arenaRankImageUrl),
+          arenaRankImageUrl, arenaRank: getNameFromUrl(arenaRankImageUrl),
           record: {
             total, wins, losses,
             winRate: wins/total || winRate
@@ -56,7 +56,7 @@ export default class Arena {
     return new Promise(async (resolve, reject) => {
       try {
         season = season || await getCurrentSeason().catch(reject) as number;
-        const url = await this.getPlayerUrl(playerName, season);
+        const url = await Arena.getPlayerUrl(playerName, season);
         const document = await getDocumentFromURL(url);
 
         const battleCount = Number(document.querySelector('#season .season-data .season-data__result-num')?.textContent) || 0;
@@ -65,7 +65,7 @@ export default class Arena {
 
         const result: BattleRecord[] = [];
         for (let i of Array(pageCount).fill(0).map((_, i) => i)) {
-          const url = await this.getPlayerUrl(playerName);
+          const url = await Arena.getPlayerUrl(playerName);
           url.searchParams.append('page', `${i + 1}`);
           const document = await getDocumentFromURL(url);
 
@@ -93,7 +93,7 @@ export default class Arena {
                 return {
                   name: $member.textContent?.trim() || '',
                   arenaRank: {
-                    name: getArenaRankName(arenaRankImageUrl),
+                    name: getNameFromUrl(arenaRankImageUrl),
                     imageUrl: arenaRankImageUrl
                   }
                 } as TeamMember;
@@ -106,9 +106,9 @@ export default class Arena {
                 wins, losses
               },
               arenaRank: {
-                name: getArenaRankName(arenaRankImageUrl),
+                name: getNameFromUrl(arenaRankImageUrl),
                 imageUrl: arenaRankImageUrl
-              }, 
+              },
               teams: { own, enemy }
             })
           });
@@ -123,7 +123,7 @@ export default class Arena {
   private static getPlayerUrl(playerName: string, season?: number): Promise<URL> {
     return new Promise(async (resolve, reject) => {
       playerName = playerName.trim();
-      const url = new URL(`${this.arenaRoute}/${season || await getCurrentSeason().catch(reject)}`);
+      const url = new URL(`${Arena.arenaRoute}/${season || await getCurrentSeason().catch(reject)}`);
       url.searchParams.append('char_name', playerName);
       resolve(url);
     });
