@@ -7,7 +7,7 @@ const AvaArenaDbAccessor = {
   searchPlayer: Clan.searchPlayer,
 
   getPlayerArenaInfo: Arena.getPlayerInfo,
-  getBattleIDs: Arena.getBattleRecords
+  getBattleRecords: Arena.getBattleRecords
 
   // TODO: Get match records
   // TODO: Get win rate by map
