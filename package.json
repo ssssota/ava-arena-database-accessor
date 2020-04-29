@@ -1,6 +1,6 @@
 {
   "name": "aada",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Accessor for (Japan)AVA Arena Database",
   "main": "dist/index.js",
   "scripts": {
@@ -19,7 +19,10 @@
     "@types/jsdom": "^16.2.1",
     "jsdom": "^16.2.2"
   },
-  "keywords": ["AVA", "Alliance of Valiant Arms"],
+  "keywords": [
+    "AVA",
+    "Alliance of Valiant Arms"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/ssssota/ava-arena-database-accessor.git"
