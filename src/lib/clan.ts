@@ -1,4 +1,4 @@
-import { countByteCharacter, getClassName, getDocumentFromURL } from '../util';
+import { countByteCharacter, getNameFromUrl, getDocumentFromURL } from '../util';
 
 class InvalidSearchTextError extends Error {}
 export default class Clan {
@@ -6,37 +6,41 @@ export default class Clan {
 
   static async getClanMembers(clanId: number): Promise<PlayerBasicInfo[]> {
     return new Promise(async (resolve, reject) => {
-      clanId = Math.floor(clanId)
-      if (clanId < 0) {
-        reject(new Error('Invalid clan ID.'));
-        return;
+      try {
+        clanId = Math.floor(clanId)
+        if (clanId < 0) {
+          reject(new Error('Invalid clan ID.'));
+          return;
+        }
+        const document = await getDocumentFromURL(`${Clan.clansRoute}/${clanId}`).catch(reject) as Document;
+        const clan = Clan.getClanBasicInfo(document, clanId);
+        // <tr>
+        //   <td>{role}</td>
+        //   <td class="name">{name}</td>
+        //   <td><img height="20" width="20" src="{classImageUrl}"></td>
+        //   <td>{sd}</td>
+        // </tr>
+        const $names = Array.from(document.querySelectorAll('#main_win .mine-box .inner .name'));
+        resolve($names.map($name => {
+          const $tr = $name.parentElement as HTMLElement;
+          const [ $roleTd, $nameTd, $classTd, $sdTd ] = Array.from($tr.getElementsByTagName('td'));
+          const $classImg = $classTd?.getElementsByTagName('img')[0];
+          const classImageUrl = $classImg?.src || '';
+  
+          return {
+            name: $nameTd?.textContent || '',
+            class: {
+              name: getNameFromUrl(classImageUrl),
+              imageUrl: classImageUrl
+            },
+            sd: Number($sdTd?.textContent) || 0,
+            clanRole: $roleTd?.textContent || undefined,
+            clan
+          };
+        }));
+      } catch (err) {
+        reject(err);
       }
-      const document = await getDocumentFromURL(`${Clan.clansRoute}/${clanId}`).catch(reject) as Document;
-      const clan = Clan.getClanBasicInfo(document, clanId);
-      // <tr>
-      //   <td>{role}</td>
-      //   <td class="name">{name}</td>
-      //   <td><img height="20" width="20" src="{classImageUrl}"></td>
-      //   <td>{sd}</td>
-      // </tr>
-      const $names = Array.from(document.querySelectorAll('#main_win .mine-box .inner .name'));
-      resolve($names.map($name => {
-        const $tr = $name.parentElement as HTMLElement;
-        const [ $roleTd, $nameTd, $classTd, $sdTd ] = Array.from($tr.getElementsByTagName('td'));
-        const $classImg = $classTd?.getElementsByTagName('img')[0];
-        const classImageUrl = $classImg?.src || '';
-
-        return {
-          name: $nameTd?.textContent || '',
-          class: {
-            name: getClassName(classImageUrl),
-            imageUrl: classImageUrl
-          },
-          sd: Number($sdTd?.textContent) || 0,
-          clanRole: $roleTd?.textContent || undefined,
-          clan
-        };
-      }));
     });
   }
 
@@ -205,7 +209,7 @@ export default class Clan {
         name: $nameTd?.textContent,
         rank: Number($rankTd?.textContent?.split('(')[0]) || -1,
         class: {
-          name: getClassName(classImageUrl),
+          name: getNameFromUrl(classImageUrl),
           imageUrl: classImageUrl,
         },
         exp: Number($expTd?.textContent) || 0,
