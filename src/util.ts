@@ -117,8 +117,8 @@ const nameImageMap: NameImageMap[] = [
 ];
 
 export function getUrlFromName(name: string): string {
-  return nameImageMap.filter(ni => ni.name === name)[0].imageUrl;
+  return nameImageMap.filter(ni => ni.name === name)[0]?.imageUrl || '';
 }
 export function getNameFromUrl(url: string): string {
-  return nameImageMap.filter(ni => ni.imageUrl === url.replace(/(?<!:)\/\//,'/'))[0].name;
+  return nameImageMap.filter(ni => ni.imageUrl === url.replace(/(?<!:)\/\//,'/'))[0]?.name || '';
 }

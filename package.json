@@ -1,12 +1,13 @@
 {
-  "name": "ava-arena-db-accessor",
-  "version": "1.0.0",
+  "name": "aada",
+  "version": "1.0.1",
   "description": "Accessor for (Japan)AVA Arena Database",
-  "private": true,
   "main": "dist/index.js",
   "scripts": {
     "start": "tsc & node dist/index",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "prepare": "tsc",
+    "build": "tsc",
+    "watch": "tsc --watch"
   },
   "author": "Tomikawa Sotaro",
   "license": "MIT",
@@ -17,5 +18,10 @@
   "dependencies": {
     "@types/jsdom": "^16.2.1",
     "jsdom": "^16.2.2"
+  },
+  "keywords": ["AVA", "Alliance of Valiant Arms"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ssssota/ava-arena-database-accessor.git"
   }
 }

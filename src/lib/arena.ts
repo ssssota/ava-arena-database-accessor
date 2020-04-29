@@ -79,13 +79,13 @@ export default class Arena {
             const winOrLose = $elem.getElementsByClassName('result__ttl')?.item(0)?.textContent || 'LOSE';
             const isVictory = (winOrLose.toUpperCase() === 'WIN')? true: false;
             const $arenaRank = $elem.getElementsByClassName('result__item-icon')?.item(0);
-            const arenaRankImageUrl = ($arenaRank?.getElementsByTagName('img') as HTMLImageElement | undefined)?.src || '';
+            const arenaRankImageUrl = ($arenaRank?.getElementsByTagName('img')?.item(0) as HTMLImageElement | undefined)?.src || '';
             const rpTransition = Number($arenaRank?.parentElement?.getElementsByTagName('p')?.item(1)?.textContent?.match(/(?<num>-?[0-9]+)/)?.groups?.num);
             const map = $elem.getElementsByClassName('result__strategy')?.item(0)?.textContent || '';
             const [ $round, $sdkd ] = Array.from($elem.getElementsByClassName('result__detail-block')) as HTMLElement[];
             const [ wins, losses ] = Array.from($round.getElementsByTagName('span')).map($e => Number($e?.textContent) || 0);
             const [ sd, kd ] = Array.from($sdkd.getElementsByTagName('span')).map($e => Number($e?.textContent) || 0);
-            const { date, time } = document.querySelector('.result__detail-date > span')?.textContent?.match(/(?<date>[0-9/]+)([^0-9:/]+)(?<time>[0-9:]+)/)?.groups as {date: string | undefined, time: string | undefined};
+            const { date, time } = $elem.querySelector('.result__detail-date > span')?.textContent?.match(/(?<date>[0-9/]+)([^0-9:/]+)(?<time>[0-9:]+)/)?.groups as {date: string | undefined, time: string | undefined};
             const endTime = new Date(`${date} ${time}`);
             const [ own, enemy ] = Array.from($elem.getElementsByClassName('result__team-members')).map($members => [
               ...Array.from($members.getElementsByClassName('result__team-member')).map($member => {
