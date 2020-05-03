@@ -65,7 +65,6 @@ export default class Clan {
     const $nameTd = $clanInfoTr.item(0) as HTMLElement;
     const $prTd = $clanInfoTr.item(1) as HTMLElement;
     const $hpAnchor = $clanInfoTr.item(2)?.getElementsByTagName('a')?.item(0);
-    console.log($nameTd.textContent, $prTd.textContent)
     return {
       name: $nameTd?.textContent || '',
       id: clanId,
