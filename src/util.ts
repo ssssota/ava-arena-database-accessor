@@ -1,17 +1,14 @@
 import { JSDOM, BaseOptions } from 'jsdom';
+import fetch from 'node-fetch';
 
 // URLからDocumentを取得
 export async function getDocumentFromURL(url: string | URL, options?: BaseOptions): Promise<Document> {
   if (url instanceof URL) url = url.href;
-  return await JSDOM.
-    fromURL(url, options).
-    then(dom => dom.window.document);
+  return (new JSDOM(await fetch(url).then(res => res.text()))).window.document;
 }
 
 export async function getCurrentSeason(): Promise<number> {
-  return await JSDOM.
-    fromURL('https://ava.pmang.jp/arena/results/').
-    then(dom => Number(dom.window.location.pathname.split('/').pop()) || 34/* First Season */);
+  return Number((new JSDOM(await fetch('https://ava.pmang.jp/arena/results/').then(res => res.text()))).window.location.pathname.split('/').pop()) || 34;
 }
 
 // 半角1、全角2として文字列の長さを数える
